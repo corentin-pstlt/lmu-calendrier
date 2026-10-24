@@ -176,20 +176,51 @@
           texte(evenement.title || evenement.name) || "Événement sans titre";
         carte.appendChild(titre);
 
-        const details = document.createElement("p");
+        const libelles = {
+          raw_text: "Informations récupérées",
+          track: "Circuit",
+          circuit: "Circuit",
+          cars: "Voitures",
+          category: "Catégorie",
+          classes: "Catégories",
+          start_utc: "Départ — UTC",
+          startDate: "Date de début",
+          duration_minutes: "Durée en minutes",
+          serie: "Série",
+          series: "Série"
+        };
 
-        if (evenement.raw_text) {
-          details.textContent = texte(evenement.raw_text);
-        } else {
-          details.textContent = Object.entries(evenement)
-            .filter(([cle]) =>
-              !["title", "name", "url", "retrieved_at"].includes(cle)
-            )
-            .map(([cle, valeur]) => `${cle} : ${texte(valeur)}`)
-            .join("\n");
+        const champsMasques = [
+          "id",
+          "title",
+          "name",
+          "url",
+          "source",
+          "retrieved_at"
+        ];
+
+        let nombreInformations = 0;
+
+        for (const [cle, valeur] of Object.entries(evenement)) {
+          if (champsMasques.includes(cle)) continue;
+
+          const contenu = texte(valeur);
+          if (!contenu.trim()) continue;
+
+          const ligne = document.createElement("p");
+          const libelle = libelles[cle] || cle;
+
+          ligne.textContent = `${libelle} : ${contenu}`;
+          carte.appendChild(ligne);
+          nombreInformations++;
         }
 
-        carte.appendChild(details);
+        if (nombreInformations === 0) {
+          const message = document.createElement("p");
+          message.textContent =
+            "Aucun détail supplémentaire n’a été récupéré pour cet événement.";
+          carte.appendChild(message);
+        }
 
 
 
