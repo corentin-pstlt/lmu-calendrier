@@ -4,47 +4,267 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Calendrier LMU</title>
+
   <style>
+    :root {
+      --fond: #0e1116;
+      --carte: #171c24;
+      --texte: #f2f2f2;
+      --secondaire: #aeb9c8;
+      --accent: #ffcc00;
+      --bordure: #303949;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #0e1116;
-      color: #f2f2f2;
       margin: 0;
-      padding: 24px;
+      background: var(--fond);
+      color: var(--texte);
+      font-family: Arial, sans-serif;
     }
-    h1 { color: #ffcc00; }
-    a {
-      color: #66ccff;
-      text-decoration: none;
+
+    main {
+      max-width: 1200px;
+      margin: auto;
+      padding: 28px 18px;
     }
-    .card {
-      background: #171c24;
-      border-radius: 12px;
+
+    h1 {
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    p {
+      line-height: 1.5;
+    }
+
+    .secondaire {
+      color: var(--secondaire);
+    }
+
+    .outils {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 24px 0;
+    }
+
+    input, button {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font: inherit;
+    }
+
+    input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--carte);
+      color: var(--texte);
+      border: 1px solid var(--bordure);
+    }
+
+    button {
+      background: var(--accent);
+      color: #111;
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    #liste {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    article {
+      min-width: 0;
       padding: 20px;
-      max-width: 700px;
-      margin-bottom: 16px;
+      border-radius: 12px;
+      background: var(--carte);
+      border: 1px solid var(--bordure);
     }
-    code {
-      background: #222a35;
-      padding: 4px 8px;
-      border-radius: 6px;
+
+    article h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    article p {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    a {
+      color: #70cfff;
+    }
+
+    .erreur {
+      color: #ff9c9c;
     }
   </style>
 </head>
+
 <body>
-  <h1>Calendrier Le Mans Ultimate</h1>
+  <main>
+    <h1>Calendrier Le Mans Ultimate</h1>
 
-  <div class="card">
-    <p>Cette page est mise à jour automatiquement par GitHub Actions.</p>
-    <p>
-      <a href="lmu_events.csv">Ouvrir le calendrier CSV</a><br>
-      <a href="lmu_events.json">Ouvrir les données JSON</a>
+    <p class="secondaire">
+      Événements récupérés par le script.
+      Leur contenu dépend des données disponibles à la source.
     </p>
-  </div>
 
-  <div class="card">
-    <p>Les fichiers seront disponibles ici après la première exécution du script :</p>
-    <p><code>lmu_events.csv</code> et <code>lmu_events.json</code></p>
-  </div>
+    <p id="statut" role="status">Chargement des données…</p>
+    <p id="date" class="secondaire"></p>
+
+    <div class="outils">
+      <input
+        id="recherche"
+        type="search"
+        placeholder="Rechercher dans les événements…"
+        aria-label="Rechercher un événement"
+      >
+      <button id="actualiser" type="button">
+        Actualiser l’affichage
+      </button>
+    </div>
+
+    <p id="compteur" class="secondaire"></p>
+    <section id="liste" aria-label="Liste des événements"></section>
+  </main>
+
+  <script>
+    let evenements = [];
+
+    const statut = document.getElementById("statut");
+    const date = document.getElementById("date");
+    const liste = document.getElementById("liste");
+    const recherche = document.getElementById("recherche");
+    const compteur = document.getElementById("compteur");
+    const bouton = document.getElementById("actualiser");
+
+    function texte(valeur) {
+      if (valeur === null || valeur === undefined) return "";
+      if (typeof valeur === "object") {
+        return JSON.stringify(valeur, null, 2);
+      }
+      return String(valeur);
+    }
+
+    function afficher() {
+      const filtre = recherche.value.toLocaleLowerCase("fr");
+      const selection = evenements.filter(e =>
+        JSON.stringify(e).toLocaleLowerCase("fr").includes(filtre)
+      );
+
+      liste.replaceChildren();
+      compteur.textContent =
+        `${selection.length} élément(s) affiché(s) sur ${evenements.length}.`;
+
+      for (const evenement of selection) {
+        const carte = document.createElement("article");
+
+        const titre = document.createElement("h2");
+        titre.textContent =
+          texte(evenement.title || evenement.name) || "Événement sans titre";
+        carte.appendChild(titre);
+
+        const details = document.createElement("p");
+
+        if (evenement.raw_text) {
+          details.textContent = texte(evenement.raw_text);
+        } else {
+          details.textContent = Object.entries(evenement)
+            .filter(([cle]) =>
+              !["title", "name", "url", "retrieved_at"].includes(cle)
+            )
+            .map(([cle, valeur]) => `${cle} : ${texte(valeur)}`)
+            .join("\n");
+        }
+
+        carte.appendChild(details);
+
+        if (evenement.url) {
+          try {
+            const url = new URL(evenement.url);
+            if (["https:", "http:"].includes(url.protocol)) {
+              const lien = document.createElement("a");
+              lien.href = url.href;
+              lien.textContent = "Voir l’événement à la source";
+              lien.target = "_blank";
+              lien.rel = "noopener noreferrer";
+              carte.appendChild(lien);
+            }
+          } catch {
+            // Ne pas afficher les liens invalides.
+          }
+        }
+
+        liste.appendChild(carte);
+      }
+    }
+
+    async function charger() {
+      bouton.disabled = true;
+      statut.className = "";
+      statut.textContent = "Chargement des données…";
+
+      try {
+        const reponse = await fetch(
+          "./lmu_events.json?t=" + Date.now(),
+          { cache: "no-store" }
+        );
+
+        if (!reponse.ok) {
+          throw new Error(`Fichier JSON inaccessible : HTTP ${reponse.status}`);
+        }
+
+        const donnees = await reponse.json();
+
+        if (!Array.isArray(donnees)) {
+          throw new Error("Le JSON doit contenir une liste d’événements.");
+        }
+
+        if (donnees.some(e =>
+          e === null || typeof e !== "object" || Array.isArray(e)
+        )) {
+          throw new Error("Certains éléments du JSON ne sont pas des événements.");
+        }
+
+        evenements = donnees;
+        afficher();
+
+        statut.textContent = evenements.length
+          ? "Données chargées."
+          : "Le fichier est accessible, mais il ne contient aucun événement.";
+
+        const dates = evenements
+          .map(e => Date.parse(e.retrieved_at))
+          .filter(d => Number.isFinite(d));
+
+        date.textContent = dates.length
+          ? "Dernière collecte indiquée : " +
+            new Date(Math.max(...dates)).toLocaleString("fr-FR")
+          : "Date de collecte non fournie par le script.";
+
+      } catch (erreur) {
+        statut.className = "erreur";
+        statut.textContent = erreur.message;
+      } finally {
+        bouton.disabled = false;
+      }
+    }
+
+    recherche.addEventListener("input", afficher);
+    bouton.addEventListener("click", charger);
+    charger();
+  </script>
 </body>
 </html>
