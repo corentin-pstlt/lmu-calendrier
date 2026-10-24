@@ -191,21 +191,7 @@
 
         carte.appendChild(details);
 
-        if (evenement.url) {
-          try {
-            const url = new URL(evenement.url);
-            if (["https:", "http:"].includes(url.protocol)) {
-              const lien = document.createElement("a");
-              lien.href = url.href;
-              lien.textContent = "Voir l’événement à la source";
-              lien.target = "_blank";
-              lien.rel = "noopener noreferrer";
-              carte.appendChild(lien);
-            }
-          } catch {
-            // Ne pas afficher les liens invalides.
-          }
-        }
+
 
         liste.appendChild(carte);
       }
